@@ -1,0 +1,2058 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AI プロンプトメーカー Pro - モック版</title>
+  <style>
+    :root {
+      --bg: #0e1117;
+      --panel: #151a23;
+      --ink: #e9eef7;
+      --muted: #9aa4b2;
+      --line: #2a3240;
+      --brand: #6aa1ff;
+      --ok: #5fd39a;
+      --warn: #ffb86b;
+      --bad: #ff6b6b;
+    }
+
+    /* 基本リセット & ベース */
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 14px/1.55 system-ui, -apple-system, Segoe UI, Roboto;
+    }
+    h1, h2, h3 { margin: 0 0 8px; }
+    a { color: var(--brand); text-decoration: none; }
+
+    /* コンテナ */
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding-inline: clamp(12px, 2vw, 24px);
+      padding-block: 16px;
+    }
+
+    /* グリッド */
+    .grid { display: grid; gap: 12px; }
+    .g2 { grid-template-columns: repeat(2, 1fr); }
+    .g3 { grid-template-columns: repeat(3, 1fr); }
+    .g4 { grid-template-columns: repeat(4, 1fr); }
+    .g6 { grid-template-columns: repeat(6, 1fr); }
+
+    @media (max-width: 1024px) {
+      .g3, .g2 { grid-template-columns: 1fr; }
+      .g4 { grid-template-columns: repeat(2, 1fr); }
+      .g6 { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 640px) {
+      .g4, .g6 { grid-template-columns: 1fr; }
+    }
+
+    /* ヘッダー */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: #0b0f16;
+      border-bottom: 1px solid #121826;
+    }
+    .header .inner {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+    }
+
+    .tabbar { display: flex; gap: 8px; flex-wrap: wrap; }
+    .tab {
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      cursor: pointer;
+      background: #121723;
+      transition: all 0.2s;
+    }
+    .tab.active {
+      border-color: #3e58a6;
+      background: #172036;
+    }
+
+    /* ボタン */
+    .btn {
+      appearance: none;
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-weight: 700;
+      cursor: pointer;
+      color: #0b1119;
+      background: linear-gradient(180deg, #6aa1ff, #497fff);
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+    .btn.small { padding: 6px 10px; font-weight: 600; }
+    .btn.ghost { background: #1d2432; color: #e6eeff; border: 1px solid var(--line); }
+    .btn.ok { background: linear-gradient(180deg, #65d77c, #43b96f); }
+    .btn.bad { background: linear-gradient(180deg, #ff7b7b, #ff5454); }
+
+    /* カード */
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      margin: 14px 0;
+      min-width: 0;
+    }
+    .panel {
+      border: 1px dashed #283244;
+      border-radius: 10px;
+      padding: 10px;
+    }
+
+    /* フォーム */
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .mini {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    label.inline {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 4px 8px 4px 0;
+    }
+    textarea,
+    input[type="text"],
+    input[type="password"],
+    select {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #0f141d;
+      color: var(--ink);
+      padding: 10px;
+    }
+
+    /* スクローラー */
+    .scroller {
+      max-height: 190px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px;
+      background: #0f141d;
+    }
+
+    /* 色ホイール */
+    .wheel-box {
+      position: relative;
+      width: 180px;
+      height: 180px;
+      margin: 6px 0 8px;
+    }
+    .wheel {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+      box-shadow:
+        0 0 0 10px #0f141d inset,
+        0 0 0 1px #2a3342 inset;
+      z-index: 1;
+      cursor: crosshair;
+      user-select: none;
+    }
+    .wheel::after {
+      content: "";
+      position: absolute;
+      inset: 28px;
+      border-radius: 50%;
+      background: #0e131c;
+      pointer-events: none;
+    }
+    .thumb {
+      position: absolute;
+      left: 83px;
+      top: -6px;
+      width: 14px;
+      height: 14px;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      box-shadow: 0 0 0 2px #000;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .swatch {
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: #333;
+    }
+
+    /* 出力エリア */
+    .out {
+      white-space: pre-wrap;
+      background: #0b0f16;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px;
+      min-height: 140px;
+      max-height: 140px;
+      overflow-y: auto;
+      color: var(--muted);
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    /* テーブル */
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #0b0f16;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .table th, .table td {
+      border-bottom: 1px solid #1e2635;
+      padding: 8px 10px;
+      text-align: left;
+      font-size: 13px;
+    }
+    .table th {
+      background: #121a2a;
+      color: #cfe0ff;
+    }
+
+    /* コード */
+    code.tag {
+      background: #101826;
+      border: 1px solid #233045;
+      border-radius: 6px;
+      padding: 1px 6px;
+      color: #d9e6ff;
+    }
+
+    /* バッジ */
+    .badge {
+      display: inline-block;
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid #2a3240;
+      background: #121a2a;
+      color: #cfe0ff;
+      margin-left: 6px;
+    }
+    .badge.warn { background: #1b1420; border-color: #4a2a3a; color: #ffb6c1; }
+    .badge.ok { background: #132019; border-color: #294b38; color: #9be7b3; }
+
+    /* ノート */
+    .note {
+      margin: 8px 0;
+      padding: 10px;
+      border: 1px dashed #2a3240;
+      border-radius: 10px;
+      background: #0f141d;
+      color: #cfd7e6;
+    }
+
+    /* 状態表示 */
+    .status {
+      padding: 6px 12px;
+      background: #111a28;
+      border: 1px solid #21304a;
+      border-radius: 10px;
+    }
+
+    /* 非表示 */
+    [hidden] {
+      display: none !important;
+    }
+
+    /* モック専用 */
+    .mock-notice {
+      background: linear-gradient(45deg, var(--warn), #f59e0b);
+      color: #92400e;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      text-align: center;
+      font-weight: 600;
+    }
+
+    /* 漫画モード */
+    .manga-section-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--line), transparent);
+      margin: 2rem 0;
+    }
+
+    .manga-search-container {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .manga-search-input {
+      flex: 1;
+    }
+
+    .manga-search-clear {
+      padding: 8px 12px;
+      background: var(--bad);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .manga-search-stats {
+      font-size: 12px;
+      opacity: 0.7;
+      margin-bottom: 12px;
+    }
+
+    /* 商用LoRA */
+    .commercial-lora-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .lora-item {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .lora-item:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--brand);
+    }
+
+    .lora-item.selected {
+      border-color: var(--ok);
+      background: rgba(95, 211, 154, 0.1);
+    }
+
+    /* 詳細要素 */
+    details {
+      border: 1px dashed #283244;
+      border-radius: 10px;
+      padding: 8px;
+      background: #0f141d;
+    }
+    summary {
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    summary::-webkit-details-marker { display: none; }
+
+    /* レスポンシブ */
+    @media (max-width: 768px) {
+      .container {
+        padding: 1rem 0.5rem;
+      }
+      
+      .tabbar {
+        font-size: 12px;
+      }
+      
+      .tab {
+        padding: 6px 12px;
+      }
+    }
+
+    /* 単語モード */
+    .wm-search {
+      margin-bottom: 16px;
+      padding: 12px;
+      background: rgba(100, 150, 255, 0.05);
+      border-radius: 8px;
+      border: 1px solid rgba(100, 150, 255, 0.2);
+    }
+
+    .wm-selected {
+      background: rgba(100, 200, 100, 0.05);
+      border: 1px solid rgba(100, 200, 100, 0.2);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+
+    .wm-selected-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .wm-chip-area {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-height: 32px;
+    }
+
+    .wm-selected-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--brand);
+      color: white;
+      padding: 4px 8px;
+      border-radius: 16px;
+      font-size: 12px;
+    }
+
+    .wm-acc {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      margin: 8px 0;
+      overflow: hidden;
+    }
+
+    .wm-acc summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.04);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .wm-items {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    }
+
+    .wm-item {
+      width: 100%;
+      text-align: left;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.03);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .wm-item:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .wm-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+    }
+
+    .wm-actions button {
+      font-size: 10px;
+      padding: 4px 8px;
+      border-radius: 8px;
+      border: none;
+      background: var(--brand);
+      color: white;
+      cursor: pointer;
+    }
+
+    /* 量産モード */
+    .production-presets {
+      margin-bottom: 20px;
+    }
+
+    .preset-buttons {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .preset-btn {
+      padding: 12px;
+      text-align: center;
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .preset-btn:hover {
+      border-color: var(--brand);
+    }
+
+    .preset-btn.active {
+      border-color: var(--ok);
+      background: rgba(95, 211, 154, 0.1);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="inner">
+      <div class="tabbar">
+        <div class="tab active" data-mode="basic">👤 基本情報</div>
+        <div class="tab" data-mode="manga">🎨 漫画モード</div>
+        <div class="tab" data-mode="planner">📷 撮影モード</div>
+        <div class="tab" data-mode="learning">🧠 LoRA学習モード</div>
+        <div class="tab" data-mode="production">📦 量産モード</div>
+        <div class="tab" data-mode="word">📖 単語モード</div>
+        <div class="tab" data-mode="settings">⚙️ 設定</div>
+      </div>
+      <div class="row mini">
+        <span class="status mini">状態: 内蔵辞書 / 18禁: <b>OFF</b></span>
+      </div>
+    </div>
+  </div>
+
+  <main class="container">
+    <div class="mock-notice">
+      🚧 これはモック版です。実際の生成機能は動作しません。UIの操作感を確認できます。
+    </div>
+
+    <!-- 基本情報 -->
+    <section id="panelBasic" class="card">
+      <div class="row">
+        <h2 style="margin:0;flex:1">キャラの基本情報</h2>
+        <button class="btn small">キャラ設定を読み込む</button>
+      </div>
+
+      <div class="note mini">
+        髪/瞳/肌・髪型・目の形・服・<b>服カラー</b>はここで固定。学習や量産では基本的に変更しません。
+      </div>
+
+      <div class="panel">
+        <h2 style="margin-top:18px">テキスト属性（SFW基礎）</h2>
+        
+        <div class="grid g6" style="margin-top:8px">
+          <div class="panel">
+            <h3>年齢</h3>
+            <div class="scroller">
+              <label class="inline"><input type="radio" name="age" value="teen">10代</label>
+              <label class="inline"><input type="radio" name="age" value="young" checked>20代前半</label>
+              <label class="inline"><input type="radio" name="age" value="adult">20代後半</label>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>性別</h3>
+            <div class="scroller">
+              <label class="inline"><input type="radio" name="gender" value="girl" checked>女性</label>
+              <label class="inline"><input type="radio" name="gender" value="boy">男性</label>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>体型</h3>
+            <div class="scroller">
+              <label class="inline"><input type="radio" name="body" value="slim" checked>スリム</label>
+              <label class="inline"><input type="radio" name="body" value="average">普通</label>
+              <label class="inline"><input type="radio" name="body" value="curvy">グラマー</label>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>身長</h3>
+            <div class="scroller">
+              <label class="inline"><input type="radio" name="height" value="short">低身長</label>
+              <label class="inline"><input type="radio" name="height" value="average" checked>普通</label>
+              <label class="inline"><input type="radio" name="height" value="tall">高身長</label>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>髪型</h3>
+            <div class="scroller">
+              <label class="inline"><input type="radio" name="hairstyle" value="long" checked>ロングヘア</label>
+              <label class="inline"><input type="radio" name="hairstyle" value="medium">ミディアム</label>
+              <label class="inline"><input type="radio" name="hairstyle" value="short">ショートヘア</label>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>髪の長さ</h3>
+            <div class="scroller">
+              <label class="inline"><input type="radio" name="hairlength" value="very_long" checked>超ロング</label>
+              <label class="inline"><input type="radio" name="hairlength" value="long">ロング</label>
+              <label class="inline"><input type="radio" name="hairlength" value="medium">ミディアム</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid g3" style="margin-top:10px">
+          <div class="panel">
+            <h3>髪色</h3>
+            <div class="wheel-box">
+              <div class="wheel"></div>
+              <div class="thumb"></div>
+            </div>
+            <label class="row mini">S: <input type="range" min="0" max="100" value="70">
+              L: <input type="range" min="0" max="100" value="45"></label>
+            <div class="row mini">
+              <div class="swatch" style="background: #8B4513;"></div>
+              <span>タグ: <code class="tag">brown hair</code></span>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>瞳色</h3>
+            <div class="wheel-box">
+              <div class="wheel"></div>
+              <div class="thumb"></div>
+            </div>
+            <label class="row mini">S: <input type="range" min="0" max="100" value="80">
+              L: <input type="range" min="0" max="100" value="55"></label>
+            <div class="row mini">
+              <div class="swatch" style="background: #4169E1;"></div>
+              <span>タグ: <code class="tag">blue eyes</code></span>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>肌トーン</h3>
+            <input type="range" min="0" max="100" value="30">
+            <div class="row mini">
+              <div class="swatch" style="background: #F5DEB3;"></div>
+              <span>タグ: <code class="tag">fair skin</code></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>服装設定</h3>
+          <div class="row mini" style="gap:10px;margin:6px 0 8px">
+            <label class="inline">
+              <input type="radio" name="outfitMode" value="separate" checked>
+              上下コーデ
+            </label>
+            <label class="inline">
+              <input type="radio" name="outfitMode" value="onepiece">
+              ワンピース
+            </label>
+          </div>
+
+          <div class="grid g4">
+            <div class="panel">
+              <h4>トップス</h4>
+              <div class="scroller">
+                <label class="inline"><input type="radio" name="top" value="tshirt" checked>Tシャツ</label>
+                <label class="inline"><input type="radio" name="top" value="shirt">シャツ</label>
+                <label class="inline"><input type="radio" name="top" value="blouse">ブラウス</label>
+              </div>
+            </div>
+            <div class="panel">
+              <h4>ワンピース</h4>
+              <div class="scroller">
+                <label class="inline"><input type="radio" name="dress" value="sundress">サンドレス</label>
+                <label class="inline"><input type="radio" name="dress" value="cocktail">カクテルドレス</label>
+                <label class="inline"><input type="radio" name="dress" value="maxi">マキシドレス</label>
+              </div>
+            </div>
+            <div class="panel">
+              <h4>ボトムス</h4>
+              <div class="scroller">
+                <label class="inline"><input type="radio" name="bottom" value="jeans" checked>ジーンズ</label>
+                <label class="inline"><input type="radio" name="bottom" value="skirt">スカート</label>
+                <label class="inline"><input type="radio" name="bottom" value="shorts">ショーツ</label>
+              </div>
+            </div>
+            <div class="panel">
+              <h4>靴</h4>
+              <div class="scroller">
+                <label class="inline"><input type="radio" name="shoes" value="sneakers" checked>スニーカー</label>
+                <label class="inline"><input type="radio" name="shoes" value="boots">ブーツ</label>
+                <label class="inline"><input type="radio" name="shoes" value="heels">ヒール</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:10px">
+            <h4>服カラー（固定）</h4>
+            <div class="grid g3">
+              <div class="panel">
+                <label class="inline"><input type="checkbox" checked> トップス色を使う</label>
+                <div class="wheel-box">
+                  <div class="wheel"></div>
+                  <div class="thumb"></div>
+                </div>
+                <div class="row mini">
+                  <div class="swatch" style="background: #FF6B6B;"></div>
+                  <span>色タグ: <code class="tag">red</code></span>
+                </div>
+              </div>
+              <div class="panel">
+                <label class="inline"><input type="checkbox" checked> ボトムス色を使う</label>
+                <div class="wheel-box">
+                  <div class="wheel"></div>
+                  <div class="thumb"></div>
+                </div>
+                <div class="row mini">
+                  <div class="swatch" style="background: #4ECDC4;"></div>
+                  <span>色タグ: <code class="tag">blue</code></span>
+                </div>
+              </div>
+              <div class="panel">
+                <label class="inline"><input type="checkbox"> 靴色を使う</label>
+                <div class="wheel-box">
+                  <div class="wheel"></div>
+                  <div class="thumb"></div>
+                </div>
+                <div class="row mini">
+                  <div class="swatch" style="background: #333;"></div>
+                  <span>色タグ: <code class="tag">black</code></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>キャラ識別</h3>
+          <label>キャラ名（seed固定）</label>
+          <input type="text" placeholder="例: Akari_v1" value="Akari_v1">
+          <label style="margin-top:8px">LoRAタグ（任意）</label>
+          <input type="text" placeholder="<lora:YourLoRA:0.8>">
+        </div>
+
+        <div class="card">
+          <div class="row">
+            <h3 style="margin:0">1枚テスト</h3>
+            <select>
+              <option>Web UI（汎用）</option>
+              <option>InvokeAI（CLI）</option>
+              <option>ComfyUI（テキスト）</option>
+            </select>
+            <button class="btn ok">テスト生成</button>
+            <button class="btn ghost">キャラ設定エクスポート</button>
+          </div>
+          
+          <div class="grid g4" style="margin-top:10px">
+            <div>
+              <div class="mini">全部</div>
+              <div class="out">1girl, brown hair, blue eyes, fair skin, red t-shirt, blue jeans, sneakers, standing, looking at viewer</div>
+              <button class="btn ghost small">全部をコピー</button>
+            </div>
+            <div>
+              <div class="mini">Promptのみ</div>
+              <div class="out">1girl, brown hair, blue eyes, fair skin, red t-shirt, blue jeans, sneakers, standing, looking at viewer</div>
+              <button class="btn ghost small">Promptだけコピー</button>
+            </div>
+            <div>
+              <div class="mini">Negativeのみ</div>
+              <div class="out">bad hands, blurry, low quality, worst quality</div>
+              <button class="btn ghost small">Negativeだけコピー</button>
+            </div>
+            <div>
+              <div class="mini">キャプション用</div>
+              <div class="out">brown hair, blue eyes, fair skin, red t-shirt, blue jeans, sneakers</div>
+              <button class="btn ghost small">キャプションをコピー</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 漫画モード -->
+    <section id="panelManga" class="card" hidden>
+      <h2>🎨 漫画モード</h2>
+      
+      <div class="manga-search-container">
+        <input type="text" class="manga-search-input" placeholder="日本語・英語で検索（部分一致）">
+        <button class="manga-search-clear">クリア</button>
+      </div>
+      <div class="manga-search-stats">全 <span>245</span> 件</div>
+
+      <div class="note">
+        ※ 上から選ぶほど意味が強くなります。競合する場合はNSFW設定が優先されます。
+      </div>
+
+      <div class="panel">
+        <h3>1. キャラ基礎使用方式（1人目）</h3>
+        <div class="row" style="gap:16px">
+          <label class="inline"><input type="radio" name="mangaCharBase" value="B" checked>基本情報で設定した内容をそのまま使う（推奨）</label>
+          <label class="inline"><input type="radio" name="mangaCharBase" value="C">使わない（完全自由）</label>
+        </div>
+      </div>
+
+      <div class="manga-section-divider"></div>
+
+      <div class="panel">
+        <h3>2. LoRA設定（任意）</h3>
+        <label class="inline"><input type="checkbox"> LoRAを使う</label>
+        <div style="margin-top: 12px;">
+          <label>LoRAタグ</label>
+          <input type="text" placeholder="<lora:__________:0.8>">
+          <div class="row mini" style="margin-top:8px">
+            <span>重み:</span>
+            <input type="range" min="0.4" max="1.2" step="0.1" value="0.8">
+            <span>0.8</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="manga-section-divider"></div>
+
+      <div class="panel">
+        <h3>3. 漫画パラメータ（SFW）</h3>
+        
+        <div class="grid g2">
+          <div class="panel">
+            <h4>感情（必須に近い）</h4>
+            <div class="scroller">
+              <label class="inline"><input type="radio" name="emotion" value="happy" checked>喜び</label>
+              <label class="inline"><input type="radio" name="emotion" value="sad">悲しみ</label>
+              <label class="inline"><input type="radio" name="emotion" value="angry">怒り</label>
+              <label class="inline"><input type="radio" name="emotion" value="surprised">驚き</label>
+              <label class="inline"><input type="radio" name="emotion" value="embarrassed">恥ずかしい</label>
+            </div>
+
+            <h5 class="mini" style="margin-top: 8px;">サブ感情</h5>
+            <div class="scroller">
+              <label class="inline"><input type="radio" name="emotionDetail" value="excited">興奮</label>
+              <label class="inline"><input type="radio" name="emotionDetail" value="peaceful">平和</label>
+              <label class="inline"><input type="radio" name="emotionDetail" value="confused">困惑</label>
+            </div>
+          </div>
+          
+          <div class="panel">
+            <h4>表情（顔の基本）</h4>
+            <div class="scroller">
+              <label class="inline"><input type="radio" name="expression" value="smile" checked>笑顔</label>
+              <label class="inline"><input type="radio" name="expression" value="serious">真剣</label>
+              <label class="inline"><input type="radio" name="expression" value="wink">ウィンク</label>
+              <label class="inline"><input type="radio" name="expression" value="blush">頬染め</label>
+              <label class="inline"><input type="radio" name="expression" value="frown">眉をひそめる</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid g2">
+          <div class="panel">
+            <h4>補助表情（顔の効果）</h4>
+            <div class="scroller">
+              <label class="inline"><input type="checkbox" name="effectManga" value="sparkle">きらきら目</label>
+              <label class="inline"><input type="checkbox" name="effectManga" value="teardrop">汗滴</label>
+              <label class="inline"><input type="checkbox" name="effectManga" value="anger_vein">怒りマーク</label>
+              <label class="inline"><input type="checkbox" name="effectManga" value="heart_eyes">ハート目</label>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h4>目の状態</h4>
+            <div class="scroller">
+              <label class="inline"><input type="radio" name="eyeState" value="open" checked>開いた目</label>
+              <label class="inline"><input type="radio" name="eyeState" value="closed">閉じた目</label>
+              <label class="inline"><input type="radio" name="eyeState" value="half_closed">半開き</label>
+              <label class="inline"><input type="radio" name="eyeState" value="wide">見開いた目</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid g2">
+          <div class="panel">
+            <h4>ポーズ</h4>
+            <div class="scroller">
+              <label class="inline"><input type="radio" name="pose" value="standing" checked>立ち</label>
+              <label class="inline"><input type="radio" name="pose" value="sitting">座り</label>
+              <label class="inline"><input type="radio" name="pose" value="running">走り</label>
+              <label class="inline"><input type="radio" name="pose" value="jumping">ジャンプ</label>
+              <label class="inline"><input type="radio" name="pose" value="lying">横たわり</label>
+            </div>
+          </div>
+          
+          <div class="panel">
+            <h4>構図</h4>
+            <div class="scroller">
+              <label class="inline"><input type="radio" name="composition" value="portrait" checked>ポートレート</label>
+              <label class="inline"><input type="radio" name="composition" value="upper_body">上半身</label>
+              <label class="inline"><input type="radio" name="composition" value="full_body">全身</label>
+              <label class="inline"><input type="radio" name="composition" value="close_up">クローズアップ</label>
+            </div>
+          </div>
+        </div>
+
+        <details class="panel">
+          <summary>任意項目（背景・ライティング・画風）</summary>
+          <div class="grid g3" style="margin-top: 12px;">
+            <div>
+              <label class="mini">背景</label>
+              <div class="scroller">
+                <label class="inline"><input type="radio" name="background" value="school">学校</label>
+                <label class="inline"><input type="radio" name="background" value="park">公園</label>
+                <label class="inline"><input type="radio" name="background" value="home">家</label>
+                <label class="inline"><input type="radio" name="background" value="city">都市</label>
+              </div>
+            </div>
+            <div>
+              <label class="mini">ライティング</label>
+              <div class="scroller">
+                <label class="inline"><input type="radio" name="lighting" value="natural">自然光</label>
+                <label class="inline"><input type="radio" name="lighting" value="sunset">夕日</label>
+                <label class="inline"><input type="radio" name="lighting" value="indoor">室内照明</label>
+              </div>
+            </div>
+            <div>
+              <label class="mini">画風</label>
+              <div class="scroller">
+                <label class="inline"><input type="radio" name="artStyle" value="anime">アニメ</label>
+                <label class="inline"><input type="radio" name="artStyle" value="manga">漫画</label>
+                <label class="inline"><input type="radio" name="artStyle" value="realistic">リアル</label>
+              </div>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <div class="manga-section-divider"></div>
+
+      <div class="panel">
+        <h3>4. NSFW（任意）</h3>
+        <label class="inline"><input type="checkbox"> NSFWを有効化</label>
+        <div class="note mini">NSFWカテゴリ（ON時のみ表示、合成時はNSFW優先）</div>
+        
+        <div class="grid g3" style="margin-top: 12px;">
+          <div>
+            <label class="mini">露出度</label>
+            <div class="scroller">
+              <label class="inline"><input type="radio" name="nsfwExpo" value="bikini">ビキニ</label>
+              <label class="inline"><input type="radio" name="nsfwExpo" value="underwear">下着</label>
+              <label class="inline"><input type="radio" name="nsfwExpo" value="nude">ヌード</label>
+            </div>
+          </div>
+          <div>
+            <label class="mini">NSFW表情</label>
+            <div class="scroller">
+              <label class="inline"><input type="radio" name="nsfwExpr" value="seductive">誘惑的</label>
+              <label class="inline"><input type="radio" name="nsfwExpr" value="ahegao">アヘ顔</label>
+              <label class="inline"><input type="radio" name="nsfwExpr" value="blushing">赤面</label>
+            </div>
+          </div>
+          <div>
+            <label class="mini">NSFWポーズ</label>
+            <div class="scroller">
+              <label class="inline"><input type="radio" name="nsfwPose" value="suggestive">示唆的</label>
+              <label class="inline"><input type="radio" name="nsfwPose" value="provocative">挑発的</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="manga-section-divider"></div>
+
+      <div class="panel">
+        <h3>5. 2人目キャラ（任意）</h3>
+        <label class="inline"><input type="checkbox"> 2人目を追加する</label>
+        
+        <div style="margin-top: 12px; padding: 12px; border: 1px dashed var(--line); border-radius: 8px;">
+          <h4>2人目キャラ設定</h4>
+          <div class="row" style="gap: 8px; margin-bottom: 16px;">
+            <button class="btn small">設定を読み込む</button>
+            <button class="btn ghost small">設定をエクスポート</button>
+          </div>
+          
+          <div class="grid g2">
+            <div class="panel">
+              <h4>基本設定</h4>
+              <div class="scroller">
+                <label class="inline"><input type="radio" name="secondCharGender" value="girl">女性</label>
+                <label class="inline"><input type="radio" name="secondCharGender" value="boy" checked>男性</label>
+              </div>
+            </div>
+            <div class="panel">
+              <h4>インタラクション</h4>
+              <div class="scroller">
+                <label class="inline"><input type="radio" name="interaction" value="talking">会話</label>
+                <label class="inline"><input type="radio" name="interaction" value="hugging">ハグ</label>
+                <label class="inline"><input type="radio" name="interaction" value="dancing">ダンス</label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="manga-section-divider"></div>
+
+      <div class="panel">
+        <h3>6. ネガティブプロンプト</h3>
+        
+        <div style="margin-bottom: 16px;">
+          <h4 class="mini">クイックプリセット</h4>
+          <div class="row" style="gap: 8px;">
+            <button class="btn ghost small">軽量セット</button>
+            <button class="btn ghost small">標準セット</button>
+            <button class="btn ghost small">高品質セット</button>
+            <button class="btn ghost small">漫画特化セット</button>
+            <button class="btn bad small">全解除</button>
+          </div>
+        </div>
+        
+        <details>
+          <summary>カテゴリ別詳細選択</summary>
+          <div class="grid g2" style="margin-top: 12px;">
+            <div>
+              <h5 class="mini">必須・推奨</h5>
+              <div class="scroller">
+                <label class="inline"><input type="checkbox" checked>bad hands</label>
+                <label class="inline"><input type="checkbox" checked>low quality</label>
+                <label class="inline"><input type="checkbox" checked>blurry</label>
+                <label class="inline"><input type="checkbox" checked>worst quality</label>
+              </div>
+            </div>
+            <div>
+              <h5 class="mini">品質向上</h5>
+              <div class="scroller">
+                <label class="inline"><input type="checkbox">extra fingers</label>
+                <label class="inline"><input type="checkbox">bad anatomy</label>
+                <label class="inline"><input type="checkbox">malformed hands</label>
+                <label class="inline"><input type="checkbox">poorly drawn hands</label>
+              </div>
+            </div>
+          </div>
+        </details>
+        
+        <label style="margin-top: 12px;">カスタム追記</label>
+        <textarea rows="3" placeholder="追加のネガティブプロンプトを入力"></textarea>
+      </div>
+
+      <div class="manga-section-divider"></div>
+
+      <div class="panel">
+        <h3>7. 商用利用可能LoRA</h3>
+        <label class="inline"><input type="checkbox"> 商用LoRAを有効化</label>
+        
+        <div class="commercial-lora-grid" style="margin-top: 12px;">
+          <div class="lora-item">
+            <h4>高品質画風LoRA</h4>
+            <p class="mini">画質向上に特化したLoRA</p>
+            <div class="row mini">
+              <label>重み: <input type="range" min="0.2" max="1.5" step="0.1" value="0.8"></label>
+              <span>0.8</span>
+            </div>
+          </div>
+          
+          <div class="lora-item selected">
+            <h4>アニメ表現LoRA</h4>
+            <p class="mini">アニメ風の表現を強化</p>
+            <div class="row mini">
+              <label>重み: <input type="range" min="0.2" max="1.5" step="0.1" value="1.0"></label>
+              <span>1.0</span>
+            </div>
+          </div>
+          
+          <div class="lora-item">
+            <h4>背景強化LoRA</h4>
+            <p class="mini">背景描写を詳細に</p>
+            <div class="row mini">
+              <label>重み: <input type="range" min="0.2" max="1.5" step="0.1" value="0.6"></label>
+              <span>0.6</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>8. 出力</h3>
+        <div class="row" style="gap:8px;">
+          <button class="btn ok">プロンプト生成</button>
+          <select>
+            <option>Web UI（汎用）</option>
+            <option>InvokeAI（CLI）</option>
+            <option>ComfyUI（テキスト）</option>
+          </select>
+          <div class="row mini" style="margin-left: auto;">
+            <label class="inline"><input type="checkbox">seed固定</label>
+            <label class="inline"><input type="checkbox">微差スイッチ</label>
+            <span>seed: 1234567890</span>
+          </div>
+        </div>
+        
+        <div class="grid g3" style="margin-top:10px">
+          <div>
+            <div class="mini">全部</div>
+            <div class="out">1girl, brown hair, blue eyes, happy, smile, standing, portrait, high quality, anime style
+
+Negative: bad hands, blurry, low quality, worst quality</div>
+            <button class="btn ghost small">全部をコピー</button>
+          </div>
+          <div>
+            <div class="mini">Promptのみ</div>
+            <div class="out">1girl, brown hair, blue eyes, happy, smile, standing, portrait, high quality, anime style</div>
+            <button class="btn ghost small">Promptだけコピー</button>
+          </div>
+          <div>
+            <div class="mini">Negativeのみ</div>
+            <div class="out">bad hands, blurry, low quality, worst quality</div>
+            <button class="btn ghost small">Negativeだけコピー</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 撮影モード -->
+    <section id="panelPlanner" class="card" hidden>
+      <h2>📷 撮影モード</h2>
+      <p class="note">写真撮影に特化したプロンプト生成。カメラワーク・ライティング重視。</p>
+
+      <div class="grid g2">
+        <div class="panel">
+          <h3>📷 カメラ設定</h3>
+          <h4 class="mini">カメラアングル</h4>
+          <div class="scroller">
+            <label class="inline"><input type="radio" name="camera" value="wide" checked>ワイドアングル</label>
+            <label class="inline"><input type="radio" name="camera" value="normal">標準レンズ</label>
+            <label class="inline"><input type="radio" name="camera" value="telephoto">望遠レンズ</label>
+            <label class="inline"><input type="radio" name="camera" value="macro">マクロレンズ</label>
+          </div>
+
+          <h4 class="mini" style="margin-top:10px">被写界深度</h4>
+          <div class="scroller">
+            <label class="inline"><input type="radio" name="depth" value="shallow">浅い（背景ボケ）</label>
+            <label class="inline"><input type="radio" name="depth" value="deep">深い（全体にピント）</label>
+            <label class="inline"><input type="radio" name="depth" value="medium" checked>中程度</label>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>💡 ライティング</h3>
+          <h4 class="mini">照明タイプ</h4>
+          <div class="scroller">
+            <label class="inline"><input type="radio" name="lighting" value="natural" checked>自然光</label>
+            <label class="inline"><input type="radio" name="lighting" value="studio">スタジオ照明</label>
+            <label class="inline"><input type="radio" name="lighting" value="golden">ゴールデンアワー</label>
+            <label class="inline"><input type="radio" name="lighting" value="dramatic">ドラマチック</label>
+          </div>
+
+          <h4 class="mini" style="margin-top:10px">時間帯</h4>
+          <div class="scroller">
+            <label class="inline"><input type="radio" name="timeOfDay" value="morning">朝</label>
+            <label class="inline"><input type="radio" name="timeOfDay" value="noon" checked>昼</label>
+            <label class="inline"><input type="radio" name="timeOfDay" value="evening">夕方</label>
+            <label class="inline"><input type="radio" name="timeOfDay" value="night">夜</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>📸 撮影要素</h3>
+        <div class="grid g3">
+          <div class="panel">
+            <h4>背景</h4>
+            <div class="scroller">
+              <label class="inline"><input type="radio" name="plannerBg" value="studio" checked>スタジオ</label>
+              <label class="inline"><input type="radio" name="plannerBg" value="outdoor">屋外</label>
+              <label class="inline"><input type="radio" name="plannerBg" value="indoor">室内</label>
+              <label class="inline"><input type="radio" name="plannerBg" value="nature">自然</label>
+            </div>
+          </div>
+          
+          <div class="panel">
+            <h4>ポーズ</h4>
+            <div class="scroller">
+              <label class="inline"><input type="radio" name="plannerPose" value="portrait" checked>ポートレート</label>
+              <label class="inline"><input type="radio" name="plannerPose" value="casual">カジュアル</label>
+              <label class="inline"><input type="radio" name="plannerPose" value="dynamic">ダイナミック</label>
+              <label class="inline"><input type="radio" name="plannerPose" value="elegant">エレガント</label>
+            </div>
+          </div>
+          
+          <div class="panel">
+            <h4>表情</h4>
+            <div class="scroller">
+              <label class="inline"><input type="radio" name="plannerExpr" value="natural" checked>自然</label>
+              <label class="inline"><input type="radio" name="plannerExpr" value="smile">笑顔</label>
+              <label class="inline"><input type="radio" name="plannerExpr" value="serious">真剣</label>
+              <label class="inline"><input type="radio" name="plannerExpr" value="mysterious">神秘的</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>🔞 18禁オプション</h3>
+        <label class="inline"><input type="checkbox"> 18禁ON</label>
+        <div class="note mini">手動選択のみ</div>
+      </div>
+
+      <div class="panel">
+        <h3>📝 固定タグ / ネガティブ</h3>
+        <label>固定タグ（先頭に付与）</label>
+        <textarea rows="3" placeholder="※タグを追加したい場合はここに入力"></textarea>
+        <label style="margin-top:10px">ネガティブ</label>
+        <textarea rows="3" placeholder="※ 指崩れ・画質劣化などを防ぐプロンプト"></textarea>
+      </div>
+
+      <div class="panel">
+        <h3>🎯 出力</h3>
+        <div class="row" style="gap:8px;">
+          <button class="btn ok">1件出力</button>
+          <select>
+            <option>Web UI（汎用）</option>
+            <option>InvokeAI（CLI）</option>
+            <option>ComfyUI（テキスト）</option>
+          </select>
+        </div>
+        
+        <div class="grid g3" style="margin-top:10px">
+          <div>
+            <div class="mini">全部</div>
+            <div class="out">1girl, brown hair, blue eyes, studio background, portrait pose, natural expression, wide angle lens, natural lighting, high quality photography
+
+Negative: blurry, out of focus, bad lighting</div>
+            <button class="btn ghost small">全部をコピー</button>
+          </div>
+          <div>
+            <div class="mini">Promptのみ</div>
+            <div class="out">1girl, brown hair, blue eyes, studio background, portrait pose, natural expression, wide angle lens, natural lighting, high quality photography</div>
+            <button class="btn ghost small">Promptだけコピー</button>
+          </div>
+          <div>
+            <div class="mini">Negativeのみ</div>
+            <div class="out">blurry, out of focus, bad lighting, overexposed, underexposed</div>
+            <button class="btn ghost small">Negativeだけコピー</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LoRA学習モード -->
+    <section id="panelLearning" class="card" hidden>
+      <div class="row">
+        <h2 style="margin:0;flex:1">🧠 LoRA学習用セット（軽いバリエーション）</h2>
+        <span class="badge warn">露出控えめ推奨</span>
+        <span class="badge">18禁は手動選択のみ</span>
+      </div>
+
+      <div class="note mini">
+        基本情報（年齢/性別/髪型/髪色/目/肌色…）は固定。ここで設定する内容がPrompt全行に展開されます。
+      </div>
+
+      <div class="panel">
+        <h3>服の扱い</h3>
+        <div class="row" style="gap:12px">
+          <label class="inline"><input type="radio" name="learnWear" value="basic" checked>基本情報の服を使う</label>
+          <label class="inline"><input type="radio" name="learnWear" value="generic">服は入れない</label>
+        </div>
+        <div class="note mini">
+          学習の汎用性を上げたい場合は「服を入れない」推奨
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>18禁</h3>
+        <label class="inline"><input type="checkbox"> 18禁ON</label>
+        <div class="note mini">衣装と体型のみ反映。服トグルより優先</div>
+      </div>
+
+      <div class="grid g2">
+        <div class="panel">
+          <h3>固定タグ / ネガティブ</h3>
+          <label>固定タグ（全行に付与）</label>
+          <textarea rows="3" placeholder="※タグを追加したい場合はここに入力"></textarea>
+
+          <label style="margin-top:10px">ネガティブ（全行）</label>
+          <textarea rows="3" placeholder="※ 指崩れ・画質劣化などを防ぐプロンプト"></textarea>
+
+          <label class="inline" style="margin-top:8px">
+            <input type="checkbox" checked>
+            デフォルトのネガティブプロンプトを使う
+          </label>
+        </div>
+
+        <div class="panel">
+          <h3>学習セット生成</h3>
+          <div class="row">
+            <select>
+              <option>20</option>
+              <option selected>24</option>
+              <option>30</option>
+            </select>
+            <select>
+              <option>Web UI（汎用）</option>
+              <option>InvokeAI（CLI）</option>
+              <option>ComfyUI（テキスト）</option>
+            </select>
+            <button class="btn ok">セット生成</button>
+          </div>
+          <div class="row" style="margin-top:8px; gap:8px;">
+            <button class="btn ghost">ローカル保存（CSV）</button>
+            <button class="btn ghost">クラウド保存（CSV）</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:10px">
+        <h4>テキスト出力</h4>
+        <div class="mini">全部（Prompt＋Negative）</div>
+        <div class="out">1girl, brown hair, blue eyes, white t-shirt, standing --neg bad hands, blurry
+1girl, brown hair, blue eyes, white t-shirt, sitting --neg bad hands, blurry
+1girl, brown hair, blue eyes, white t-shirt, walking --neg bad hands, blurry
+1girl, brown hair, blue eyes, white t-shirt, looking at viewer --neg bad hands, blurry</div>
+        <button class="btn ghost small">全部をコピー</button>
+
+        <div class="mini" style="margin-top:.75rem">Promptのみ</div>
+        <div class="out">1girl, brown hair, blue eyes, white t-shirt, standing
+1girl, brown hair, blue eyes, white t-shirt, sitting
+1girl, brown hair, blue eyes, white t-shirt, walking
+1girl, brown hair, blue eyes, white t-shirt, looking at viewer</div>
+        <button class="btn ghost small">Promptだけコピー</button>
+      </div>
+
+      <table class="table" style="margin-top:1rem">
+        <thead>
+          <tr><th>#</th><th>seed</th><th>prompt</th><th>negative</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td>123456</td>
+            <td>1girl, brown hair, blue eyes, white t-shirt, standing</td>
+            <td>bad hands, blurry</td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td>123457</td>
+            <td>1girl, brown hair, blue eyes, white t-shirt, sitting</td>
+            <td>bad hands, blurry</td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>123458</td>
+            <td>1girl, brown hair, blue eyes, white t-shirt, walking</td>
+            <td>bad hands, blurry</td>
+          </tr>
+          <tr>
+            <td>4</td>
+            <td>123459</td>
+            <td>1girl, brown hair, blue eyes, white t-shirt, looking at viewer</td>
+            <td>bad hands, blurry</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 量産モード -->
+    <section id="panelProduction" class="card" hidden>
+      <div class="row">
+        <h2>📦 量産モード（LoRA完成後）</h2>
+        <span class="badge ok">多様性重視</span>
+        <span class="badge">簡単設定</span>
+      </div>
+
+      <div class="production-presets">
+        <h3>⚡ クイック設定</h3>
+        <div class="preset-buttons">
+          <div class="preset-btn">
+            👕 服装バリエーション<br>
+            <small>服だけ変更、他は固定</small>
+          </div>
+          <div class="preset-btn active">
+            🎭 表情バリエーション<br>
+            <small>表情・ポーズ変更、服固定</small>
+          </div>
+          <div class="preset-btn">
+            🎨 ミックス<br>
+            <small>服・表情両方変更</small>
+          </div>
+          <div class="preset-btn">
+            ⚙️ カスタム<br>
+            <small>自分で詳細設定</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>現在の設定状況</h3>
+        <div class="grid g3">
+          <div class="panel">
+            <h4>🔄 変更する要素</h4>
+            <div>表情、ポーズ、視線</div>
+          </div>
+          <div class="panel">
+            <h4>📌 固定する要素</h4>
+            <div>髪色、瞳色、服装、背景</div>
+          </div>
+          <div class="panel">
+            <h4>📊 予想組み合わせ数</h4>
+            <div>約 35 通り</div>
+          </div>
+        </div>
+      </div>
+
+      <details class="panel" open>
+        <summary>服装設定</summary>
+        <div class="grid g2" style="margin-top:12px">
+          <div class="panel">
+            <label class="inline">
+              <input type="radio" name="clothingMode" value="fixed" checked>
+              固定（推奨）- 基本情報の服装をそのまま使用
+            </label>
+          </div>
+          <div class="panel">
+            <label class="inline">
+              <input type="radio" name="clothingMode" value="vary">
+              バリエーション - 複数の服装から選択
+            </label>
+          </div>
+        </div>
+      </details>
+
+      <details class="panel" open>
+        <summary>表情・ポーズ設定</summary>
+        <div class="grid g2" style="margin-top:12px">
+          <div class="panel">
+            <h4>表情バリエーション</h4>
+            <div class="scroller">
+              <label class="inline"><input type="checkbox" checked>笑顔</label>
+              <label class="inline"><input type="checkbox" checked>真剣</label>
+              <label class="inline"><input type="checkbox" checked>ウィンク</label>
+              <label class="inline"><input type="checkbox">驚き</label>
+              <label class="inline"><input type="checkbox">恥ずかしい</label>
+            </div>
+          </div>
+          <div class="panel">
+            <h4>ポーズバリエーション</h4>
+            <div class="scroller">
+              <label class="inline"><input type="checkbox" checked>立ち</label>
+              <label class="inline"><input type="checkbox" checked>座り</label>
+              <label class="inline"><input type="checkbox">走り</label>
+              <label class="inline"><input type="checkbox">ジャンプ</label>
+              <label class="inline"><input type="checkbox">横たわり</label>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details class="panel">
+        <summary>背景・構図設定</summary>
+        <div class="grid g2" style="margin-top:12px">
+          <div class="panel">
+            <h4>背景</h4>
+            <div class="scroller">
+              <label class="inline"><input type="radio" name="prodBg" value="simple" checked>シンプル背景</label>
+              <label class="inline"><input type="radio" name="prodBg" value="school">学校</label>
+              <label class="inline"><input type="radio" name="prodBg" value="outdoor">屋外</label>
+            </div>
+          </div>
+          <div class="panel">
+            <h4>構図</h4>
+            <div class="scroller">
+              <label class="inline"><input type="radio" name="prodComp" value="portrait" checked>ポートレート</label>
+              <label class="inline"><input type="radio" name="prodComp" value="upper">上半身</label>
+              <label class="inline"><input type="radio" name="prodComp" value="full">全身</label>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details class="panel">
+        <summary>18禁設定（任意）</summary>
+        <div style="margin-top:12px">
+          <label class="inline"><input type="checkbox"> 18禁ON</label>
+          <div class="note mini">選んだもののみ使用</div>
+        </div>
+      </details>
+
+      <details class="panel" open>
+        <summary>出力設定</summary>
+        <div class="grid g2" style="margin-top:12px">
+          <div class="panel">
+            <h4>固定タグ・ネガティブ</h4>
+            <label>固定タグ（先頭に付与）</label>
+            <textarea rows="3" placeholder="※タグを追加したい場合はここに入力"></textarea>
+            <label>ネガティブ（量産用）</label>
+            <textarea rows="3" placeholder="※ 共通ネガに加えて、量産時のみ追加したい内容"></textarea>
+          </div>
+          <div class="panel">
+            <h4>生成設定</h4>
+            <div class="row">
+              <label class="inline">
+                <input type="radio" name="seedMode" value="fixed" checked>
+                seed固定
+              </label>
+              <label class="inline">
+                <input type="radio" name="seedMode" value="vary">
+                行ごとに微差seed
+              </label>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <label>件数</label>
+              <select>
+                <option>20</option>
+                <option>30</option>
+                <option selected>50</option>
+              </select>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <select>
+                <option>Web UI（汎用）</option>
+                <option>InvokeAI（CLI）</option>
+                <option>ComfyUI（テキスト）</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <div class="panel" style="background: rgba(95, 211, 154, 0.1); border-color: var(--ok);">
+        <div class="row">
+          <button class="btn ok" style="padding: 12px 24px; font-size: 16px;">🚀 量産セット生成</button>
+          <div style="flex: 1;"></div>
+          <button class="btn ghost">ローカル保存（CSV）</button>
+          <button class="btn ghost">クラウド保存（CSV）</button>
+        </div>
+      </div>
+
+      <div style="margin-top:10px">
+        <h3>生成結果</h3>
+        <div class="mini">全部</div>
+        <div class="out">1girl, brown hair, blue eyes, red t-shirt, blue jeans, smile, standing, portrait
+1girl, brown hair, blue eyes, red t-shirt, blue jeans, serious, sitting, portrait
+1girl, brown hair, blue eyes, red t-shirt, blue jeans, wink, standing, portrait
+1girl, brown hair, blue eyes, red t-shirt, blue jeans, smile, sitting, portrait</div>
+        <button class="btn ghost small">全部をコピー</button>
+
+        <div class="mini" style="margin-top:.75rem">Promptのみ</div>
+        <div class="out">1girl, brown hair, blue eyes, red t-shirt, blue jeans, smile, standing, portrait
+1girl, brown hair, blue eyes, red t-shirt, blue jeans, serious, sitting, portrait
+1girl, brown hair, blue eyes, red t-shirt, blue jeans, wink, standing, portrait</div>
+        <button class="btn ghost small">Promptだけコピー</button>
+      </div>
+
+      <table class="table" style="margin-top:1rem">
+        <thead>
+          <tr><th>#</th><th>seed</th><th>prompt</th><th>negative</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td>999888</td>
+            <td>1girl, brown hair, blue eyes, red t-shirt, blue jeans, smile, standing, portrait</td>
+            <td>bad hands, blurry</td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td>999888</td>
+            <td>1girl, brown hair, blue eyes, red t-shirt, blue jeans, serious, sitting, portrait</td>
+            <td>bad hands, blurry</td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>999888</td>
+            <td>1girl, brown hair, blue eyes, red t-shirt, blue jeans, wink, standing, portrait</td>
+            <td>bad hands, blurry</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 単語モード -->
+    <section id="panelWordMode" class="card" hidden>
+      <h2>📖 単語モード</h2>
+      <p class="note">辞書からカテゴリ別に単語を選び、下部テーブルに最大20件まで蓄積・コピーできます。</p>
+
+      <div class="wm-search">
+        <div class="manga-search-container">
+          <input type="text" class="manga-search-input" placeholder="日本語・英語で検索（部分一致）">
+          <button class="manga-search-clear">×</button>
+        </div>
+        <div class="manga-search-stats">全 <span>1,247</span> 件</div>
+      </div>
+
+      <div class="wm-selected">
+        <div class="wm-selected-head">
+          <strong>選択中 <span>3</span>/20</strong>
+          <button class="btn bad small">Clear</button>
+        </div>
+        <div class="wm-chip-area">
+          <div class="wm-selected-chip">
+            笑顔 <small>(smile)</small>
+            <button>×</button>
+          </div>
+          <div class="wm-selected-chip">
+            立ち <small>(standing)</small>
+            <button>×</button>
+          </div>
+          <div class="wm-selected-chip">
+            青い髪 <small>(blue hair)</small>
+            <button>×</button>
+          </div>
+        </div>
+      </div>
+
+      <h3 style="margin: 16px 0 8px; color: var(--brand);">SFW カテゴリ</h3>
+        
+      <details class="wm-acc" open>
+        <summary>背景 <span class="badge">47</span></summary>
+        <div class="wm-items">
+          <div class="wm-item">
+            <div>
+              <div class="wm-jp">学校</div>
+              <div class="wm-en">school</div>
+            </div>
+            <div class="wm-actions">
+              <button>EN</button>
+              <button>BOTH</button>
+            </div>
+          </div>
+          <div class="wm-item">
+            <div>
+              <div class="wm-jp">公園</div>
+              <div class="wm-en">park</div>
+            </div>
+            <div class="wm-actions">
+              <button>EN</button>
+              <button>BOTH</button>
+            </div>
+          </div>
+          <div class="wm-item">
+            <div>
+              <div class="wm-jp">海</div>
+              <div class="wm-en">beach</div>
+            </div>
+            <div class="wm-actions">
+              <button>EN</button>
+              <button>BOTH</button>
+            </div>
+          </div>
+          <div class="wm-item">
+            <div>
+              <div class="wm-jp">山</div>
+              <div class="wm-en">mountain</div>
+            </div>
+            <div class="wm-actions">
+              <button>EN</button>
+              <button>BOTH</button>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details class="wm-acc">
+        <summary>ポーズ <span class="badge">89</span></summary>
+        <div class="wm-items">
+          <div class="wm-item">
+            <div>
+              <div class="wm-jp">立ち</div>
+              <div class="wm-en">standing</div>
+            </div>
+            <div class="wm-actions">
+              <button>EN</button>
+              <button>BOTH</button>
+            </div>
+          </div>
+          <div class="wm-item">
+            <div>
+              <div class="wm-jp">座り</div>
+              <div class="wm-en">sitting</div>
+            </div>
+            <div class="wm-actions">
+              <button>EN</button>
+              <button>BOTH</button>
+            </div>
+          </div>
+          <div class="wm-item">
+            <div>
+              <div class="wm-jp">歩き</div>
+              <div class="wm-en">walking</div>
+            </div>
+            <div class="wm-actions">
+              <button>EN</button>
+              <button>BOTH</button>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details class="wm-acc">
+        <summary>表情 <span class="badge">156</span></summary>
+        <div class="wm-items">
+          <div class="wm-item">
+            <div>
+              <div class="wm-jp">笑顔</div>
+              <div class="wm-en">smile</div>
+            </div>
+            <div class="wm-actions">
+              <button>EN</button>
+              <button>BOTH</button>
+            </div>
+          </div>
+          <div class="wm-item">
+            <div>
+              <div class="wm-jp">真剣</div>
+              <div class="wm-en">serious</div>
+            </div>
+            <div class="wm-actions">
+              <button>EN</button>
+              <button>BOTH</button>
+            </div>
+          </div>
+          <div class="wm-item">
+            <div>
+              <div class="wm-jp">驚き</div>
+              <div class="wm-en">surprised</div>
+            </div>
+            <div class="wm-actions">
+              <button>EN</button>
+              <button>BOTH</button>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <h3 style="margin: 16px 0 8px; color: var(--bad);">NSFW カテゴリ</h3>
+      <div class="note mini">18禁コンテンツが含まれます</div>
+        
+      <details class="wm-acc">
+        <summary>露出 <span class="badge">34</span></summary>
+        <div class="wm-items">
+          <div class="wm-item">
+            <div>
+              <div class="wm-jp">ビキニ</div>
+              <div class="wm-en">bikini</div>
+            </div>
+            <div class="wm-actions">
+              <button>EN</button>
+              <button>BOTH</button>
+            </div>
+          </div>
+          <div class="wm-item">
+            <div>
+              <div class="wm-jp">下着</div>
+              <div class="wm-en">underwear</div>
+            </div>
+            <div class="wm-actions">
+              <button>EN</button>
+              <button>BOTH</button>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <div style="margin-top: 24px;">
+        <div class="row" style="justify-content: space-between; align-items: center;">
+          <h3>出力テーブル（最大20件）</h3>
+          <div class="row" style="gap: 8px;">
+            <button class="btn ghost small">Copy EN (All)</button>
+            <button class="btn ghost small">Copy BOTH (All)</button>
+            <button class="btn bad small">Clear</button>
+          </div>
+        </div>
+        
+        <table class="table">
+          <thead>
+            <tr><th>日本語</th><th>English</th><th>コピー</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>笑顔</td>
+              <td>smile</td>
+              <td>
+                <div class="row" style="gap: 4px;">
+                  <button class="btn ghost small">EN</button>
+                  <button class="btn ghost small">BOTH</button>
+                  <button class="btn bad small">×</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>立ち</td>
+              <td>standing</td>
+              <td>
+                <div class="row" style="gap: 4px;">
+                  <button class="btn ghost small">EN</button>
+                  <button class="btn ghost small">BOTH</button>
+                  <button class="btn bad small">×</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>青い髪</td>
+              <td>blue hair</td>
+              <td>
+                <div class="row" style="gap: 4px;">
+                  <button class="btn ghost small">EN</button>
+                  <button class="btn ghost small">BOTH</button>
+                  <button class="btn bad small">×</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 設定 -->
+    <section id="panelSettings" class="card" hidden>
+      <h2>⚙️ 設定</h2>
+      
+      <div class="grid g3">
+        <div class="panel">
+          <h3>辞書 I/O（SFW / NSFW）</h3>
+          <button class="btn small">辞書インポート</button>
+          <button class="btn ghost small">辞書エクスポート</button>
+          <div class="note mini">辞書の読み込み・書き出し機能</div>
+        </div>
+
+        <div class="panel">
+          <h3>アプリ管理</h3>
+          <div class="note mini">辞書インポート後に表示が崩れたらキャッシュ初期化でOK。</div>
+          <button class="btn ok small">設定を保存</button>
+          <button class="btn bad small">キャッシュ初期化</button>
+        </div>
+
+        <div class="panel">
+          <h3>その他設定</h3>
+          <label class="inline"><input type="checkbox" checked> 自動保存を有効化</label>
+          <label class="inline"><input type="checkbox"> デバッグモード</label>
+          <label class="inline"><input type="checkbox" checked> ツールチップを表示</label>
+          <label class="inline"><input type="checkbox"> 高コントラストモード</label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>バージョン情報</h3>
+        <div class="note">
+          <strong>AIプロンプトメーカー Pro</strong><br>
+          バージョン: 2.1.0 (モック版)<br>
+          最終更新: 2024年12月<br>
+          <br>
+          このモック版では実際の機能は動作しませんが、UIの操作感を確認していただけます。
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // モック版のJavaScript - 基本的なタブ切り替えと簡単なインタラクション
+
+    // タブ切り替え機能
+    function initTabs() {
+      const tabs = document.querySelectorAll('.tab');
+      const panels = document.querySelectorAll('section[id^="panel"]');
+      
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          // アクティブタブの切り替え
+          tabs.forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          
+          // パネルの表示切り替え
+          const mode = tab.dataset.mode;
+          panels.forEach(panel => {
+            const panelMode = panel.id.replace('panel', '').replace(/([A-Z])/g, (match) => match.toLowerCase());
+            panel.hidden = panelMode !== mode.toLowerCase();
+          });
+          
+          // 基本情報パネルの特別処理
+          if (mode === 'basic') {
+            document.getElementById('panelBasic').hidden = false;
+          }
+        });
+      });
+    }
+
+    // ボタンクリック時のフィードバック
+    function addButtonFeedback() {
+      const buttons = document.querySelectorAll('.btn, button');
+      buttons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          // 実際の機能は動作しないことを通知
+          if (btn.textContent.includes('生成') || 
+              btn.textContent.includes('コピー') || 
+              btn.textContent.includes('保存') ||
+              btn.textContent.includes('テスト') ||
+              btn.textContent.includes('エクスポート')) {
+            e.preventDefault();
+            showMockNotification('モック版では実際の機能は動作しません');
+            return;
+          }
+          
+          // ビジュアルフィードバック
+          btn.style.transform = 'scale(0.95)';
+          setTimeout(() => {
+            btn.style.transform = '';
+          }, 100);
+        });
+      });
+    }
+
+    // モック通知表示
+    function showMockNotification(message) {
+      // 既存の通知があれば削除
+      const existing = document.querySelector('.mock-notification');
+      if (existing) existing.remove();
+      
+      const notification = document.createElement('div');
+      notification.className = 'mock-notification';
+      notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: var(--warn);
+        color: #92400e;
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-weight: 600;
+        z-index: 1000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        animation: slideIn 0.3s ease;
+        max-width: 300px;
+      `;
+      notification.textContent = message;
+      
+      // アニメーション
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes slideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `;
+      document.head.appendChild(style);
+      
+      document.body.appendChild(notification);
+      
+      // 3秒後に自動削除
+      setTimeout(() => {
+        notification.style.animation = 'slideIn 0.3s ease reverse';
+        setTimeout(() => notification.remove(), 300);
+      }, 3000);
+    }
+
+    // カラーピッカーのインタラクション
+    function addColorPickerInteraction() {
+      const wheels = document.querySelectorAll('.wheel');
+      wheels.forEach(wheel => {
+        wheel.addEventListener('click', (e) => {
+          const rect = wheel.getBoundingClientRect();
+          const centerX = rect.width / 2;
+          const centerY = rect.height / 2;
+          const x = e.clientX - rect.left - centerX;
+          const y = e.clientY - rect.top - centerY;
+          
+          // 角度計算
+          const angle = Math.atan2(y, x) * 180 / Math.PI;
+          const normalizedAngle = (angle + 360) % 360;
+          
+          // サムの位置更新
+          const thumb = wheel.nextElementSibling;
+          if (thumb && thumb.classList.contains('thumb')) {
+            const radius = 70; // ホイールの半径
+            const thumbX = centerX + Math.cos(normalizedAngle * Math.PI / 180) * radius - 7;
+            const thumbY = centerY + Math.sin(normalizedAngle * Math.PI / 180) * radius - 7;
+            thumb.style.left = thumbX + 'px';
+            thumb.style.top = thumbY + 'px';
+          }
+          
+          // 色見本の更新
+          const hue = normalizedAngle;
+          const saturation = 70;
+          const lightness = 50;
+          const color = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+          
+          const swatch = wheel.closest('.panel').querySelector('.swatch');
+          if (swatch) {
+            swatch.style.background = color;
+          }
+        });
+      });
+    }
+
+    // 検索機能のモック
+    function addSearchMock() {
+      const searchInputs = document.querySelectorAll('.manga-search-input, input[placeholder*="検索"]');
+      searchInputs.forEach(input => {
+        input.addEventListener('input', (e) => {
+          const query = e.target.value.toLowerCase();
+          const statsElement = input.parentElement.nextElementSibling;
+          
+          if (statsElement && statsElement.classList.contains('manga-search-stats')) {
+            const totalCount = parseInt(statsElement.textContent.match(/\d+/)[0]);
+            const filteredCount = query ? Math.floor(totalCount * 0.3) : totalCount;
+            statsElement.innerHTML = `全 <span>${filteredCount}</span> 件`;
+          }
+        });
+      });
+    }
+
+    // レンジスライダーの値表示更新
+    function addRangeUpdates() {
+      const ranges = document.querySelectorAll('input[type="range"]');
+      ranges.forEach(range => {
+        const updateValue = () => {
+          const nextSpan = range.nextElementSibling;
+          if (nextSpan && nextSpan.tagName === 'SPAN') {
+            nextSpan.textContent = range.value;
+          }
+        };
+        
+        range.addEventListener('input', updateValue);
+        updateValue(); // 初期値設定
+      });
+    }
+
+    // プリセットボタンのアクティブ切り替え
+    function addPresetInteraction() {
+      const presetButtons = document.querySelectorAll('.preset-btn');
+      presetButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          presetButtons.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        });
+      });
+    }
+
+    // LoRAアイテムの選択切り替え
+    function addLoRAInteraction() {
+      const loraItems = document.querySelectorAll('.lora-item');
+      loraItems.forEach(item => {
+        item.addEventListener('click', () => {
+          item.classList.toggle('selected');
+        });
+      });
+    }
+
+    // 初期化
+    document.addEventListener('DOMContentLoaded', () => {
+      initTabs();
+      addButtonFeedback();
+      addColorPickerInteraction();
+      addSearchMock();
+      addRangeUpdates();
+      addPresetInteraction();
+      addLoRAInteraction();
+      
+      // 初期通知
+      setTimeout(() => {
+        showMockNotification('モック版へようこそ！UIの操作感をお試しください。');
+      }, 1000);
+    });
+  </script>
+</body>
+</html>
